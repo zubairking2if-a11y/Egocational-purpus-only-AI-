@@ -13,6 +13,7 @@ import logging
 from worker.broker import Broker
 from core.events import EventBus
 from backend.routes.terminal import router as terminal_router
+from backend.routes.scans import router as scans_router
 
 logger = logging.getLogger("offline-pentest.backend.server")
 
@@ -82,8 +83,9 @@ async def scan(req: ScanRequest):
     return {"status": "enqueued", "target": req.target}
 
 
-# Register WebSocket routes
+# Register routers
 app.include_router(terminal_router)
+app.include_router(scans_router)
 
 
 if __name__ == "__main__":
