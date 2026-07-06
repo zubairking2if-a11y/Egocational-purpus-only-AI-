@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pentest-backend
+    volumes:
+      # Mount Docker socket so backend can spawn isolated containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Optional: Mount config directory
+      - ./config:/app/config:ro
+    environment:
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-development-secret-key-change-in-production}
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRATION_MINUTES=60
+      - SANDBOX_MAX_EXEC_TIME=300
+      - SANDBOX_IMAGE=kali-linux-headless:latest
+      - SANDBOX_NETWORK=pentest-sandbox-net
+      - LOG_LEVEL=INFO
+    networks:
+      - app-net
+      - pentest-sandbox-net
+    ports:
+      - "8000:8000"
+    depends_on:
+      - docker-dind
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    image: node:18
+    container_name: pentest-frontend
+    working_dir: /app/frontend
+    volumes:
+      - ./frontend:/app/frontend
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev"
+    networks:
+      - app-net
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Optional: Docker-in-Docker for additional isolation
+  # Uncomment if you want containers to run in a separate Docker daemon
+  # docker-dind:
+  #   image: docker:dind
+  #   container_name: pentest-docker-dind
+  #   privileged: true
+  #   volumes:
+  #     - docker-dind-storage:/var/lib/docker
+  #   networks:
+  #     - app-net
+  #   environment:
+  #     - DOCKER_TLS_CERTDIR=""
+
+networks:
+  app-net:
+    driver: bridge
+    name: app-net
+
+  pentest-sandbox-net:
+    driver: bridge
+    name: pentest-sandbox-net
+    # Set internal: true to block internet access from sandbox containers
+    # internal: true
+
+# volumes:
+#   docker-dind-storage:

@@ -1,7 +1,7 @@
 """Backend server: start background worker broker on startup so scan requests are processed.
 
 This module wires the in-memory Broker, WebSocket routes, and exposes endpoints.
-By default all runs remain simulated until runners are implemented.
+By default all runs execute in isolated Docker containers for security.
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +14,7 @@ from worker.broker import Broker
 from core.events import EventBus
 from backend.routes.terminal import router as terminal_router
 from backend.routes.scans import router as scans_router
+from backend.startup import run_startup_checks
 
 logger = logging.getLogger("offline-pentest.backend.server")
 
@@ -33,7 +34,15 @@ broker = Broker()
 
 @app.on_event("startup")
 async def startup_event():
-    """Start background worker loop on application startup."""
+    """Run startup checks and start background worker loop."""
+    logger.info("Backend application starting...")
+    
+    # Verify Docker and sandbox infrastructure
+    checks_passed = await run_startup_checks()
+    if not checks_passed:
+        logger.warning("Startup checks failed. Docker sandbox execution may not be available.")
+    
+    # Start worker loop in background
     logger.info("Starting background worker broker...")
     asyncio.create_task(broker.worker_loop())
 
