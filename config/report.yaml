@@ -1,0 +1,5 @@
+# Report templates & executive summary settings
+report:
+  formats: [pdf, markdown]
+  include_pocs: true
+  executive_summary_words: 150

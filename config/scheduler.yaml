@@ -1,0 +1,4 @@
+# Scheduler & queue throttling
+scheduler:
+  max_concurrent_scans: 2
+  default_cron: "0 2 * * *"

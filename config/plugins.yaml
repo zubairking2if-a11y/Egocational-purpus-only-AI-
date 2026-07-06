@@ -1,0 +1,6 @@
+# Plugins allowlisting and manifest
+plugins:
+  allow_third_party: false
+  trusted:
+    - name: core:nmap-wrapper
+      version: "0.1"

@@ -1,0 +1,8 @@
+# Security placeholders — DO NOT STORE SECRETS IN REPO
+security:
+  jwt_secret: "REPLACE_ME"
+  allowed_origins:
+    - "http://localhost:5173"
+  rbac:
+    - role: admin
+      permissions: ["scan:run","scan:read","model:manage"]

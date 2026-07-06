@@ -1,0 +1,11 @@
+# AI agent configuration and system prompts
+agents:
+  supervisor:
+    temperature: 0.2
+    max_tokens: 512
+  reconnaissance:
+    temperature: 0.0
+    max_tokens: 256
+system_prompts:
+  default: |
+    You are an offline pentesting assistant. Operate safely and never execute destructive commands without explicit user approval.

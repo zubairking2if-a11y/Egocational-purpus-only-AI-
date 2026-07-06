@@ -1,0 +1,12 @@
+# Core global application settings (placeholder)
+app_name: Offline Pentest AI
+environment: development
+debug: true
+# Fill in database paths, storage locations, and service toggles
+database:
+  sqlite_path: data/offline_pentest.db
+models_dir: /models
+allowed_tools:
+  - nmap
+  - nuclei
+  - ffuf

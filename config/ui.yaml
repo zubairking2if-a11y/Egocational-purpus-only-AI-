@@ -1,0 +1,4 @@
+# Frontend UI configuration (theme, hotkeys)
+theme: "dark"
+hotkeys:
+  run_scan: "Ctrl+R"

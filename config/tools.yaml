@@ -1,0 +1,10 @@
+# Tools configuration and rate limits
+tools:
+  nmap:
+    binary: "nmap"
+    default_args: "-sV -oX -"
+    rate_limit_per_min: 10
+  nuclei:
+    binary: "nuclei"
+    default_args: "-json"
+    rate_limit_per_min: 30

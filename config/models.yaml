@@ -1,0 +1,10 @@
+# Models YAML — point to local quantized model files (GGUF/EXL2)
+models:
+  default:
+    name: "bge-m3"
+    path: "/models/bge-m3.gguf"
+    context_window: 8192
+  small:
+    name: "vicuna-7b"
+    path: "/models/vicuna-7b.gguf"
+    context_window: 2048
