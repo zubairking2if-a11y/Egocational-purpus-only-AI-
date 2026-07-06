@@ -2,13 +2,14 @@
 
 This module handles:
 - WebSocket connection acceptance and validation
-- Token-based authentication (query param fallback)
+- JWT token-based authentication (query param)
 - Bidirectional communication (stdout streaming + stdin injection)
 - Connection lifecycle management
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, WebSocketException, status
 from backend.websocket.terminal_processor import ActiveSessionManager
+from backend.security.auth import verify_access_token
 import logging
 
 logger = logging.getLogger("offline-pentest.routes.terminal")
@@ -30,36 +31,51 @@ async def terminal_websocket_endpoint(
     
     Authentication:
     - Token passed as query parameter: ?token=<JWT>
-    - Validates token format (placeholder—replace with real JWT verification)
-    - Closes connection with policy violation if token is invalid
+    - Validates JWT signature, algorithm, and expiration
+    - Closes connection with WS_1008_POLICY_VIOLATION if token is invalid
     
     Message Protocol:
     - Server -> Client: Raw terminal output (text frames)
-    - Client -> Server: JSON messages {"event": "stdin", "data": "<command>\n"}
+    - Client -> Server: JSON messages {"event": "stdin", "data": "<command>\\n"}
+                         or {"event": "ping"} for keepalive
     
     Args:
         websocket: FastAPI WebSocket connection
         session_id: Unique session identifier for routing
         token: JWT token passed as query parameter
-    """
-    # Accept the WebSocket handshake
-    await websocket.accept()
-    logger.info(f"WebSocket connection accepted for session: {session_id}")
     
-    # Simple token validation placeholder
-    # TODO: Replace with real JWT verification (see auth/verify_token.py)
+    Raises:
+        WebSocketException: If token validation fails (handled and closed gracefully)
+    """
+    # Enforce token check BEFORE accepting the handshake
     if not token:
-        logger.warning(f"No token provided for session {session_id}. Closing connection.")
+        logger.warning(f"No token provided for session {session_id}. Rejecting connection.")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Missing authentication token")
         return
     
-    if token == "invalid_token":
-        logger.warning(f"Invalid token provided for session {session_id}. Closing connection.")
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token")
+    try:
+        # Securely decode and verify JWT payload
+        token_payload = verify_access_token(token)
+        user_id = token_payload.get("sub", "unknown")
+        logger.info(f"User {user_id} authenticated successfully for session {session_id}")
+        
+        # Accept connection only after successful validation
+        await websocket.accept()
+        
+    except WebSocketException as e:
+        # Token validation failed—close with appropriate code and reason
+        logger.error(f"WebSocket auth rejection for session {session_id}: {e.reason}")
+        await websocket.close(code=e.code, reason=e.reason)
+        return
+    except Exception as e:
+        # Unexpected error during validation
+        logger.error(f"Unexpected error during token validation: {type(e).__name__}: {str(e)}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Authentication validation failed")
         return
     
-    # Register this connection with the session manager
+    # Register this authenticated connection with the session manager
     ActiveSessionManager.register_connection(session_id, websocket)
+    logger.info(f"WebSocket client authorized for session: {session_id}")
     
     try:
         while True:
