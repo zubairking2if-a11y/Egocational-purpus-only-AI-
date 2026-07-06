@@ -1,9 +1,19 @@
 # Tools configuration and rate limits
+# live_execution: set to true only after you review sandboxing, RBAC, and allowlists.
 tools:
+  live_execution: false
+  allowed_tools:
+    - nmap
+    - nuclei
+    - ffuf
   nmap:
     binary: "nmap"
     default_args: "-sV -oX -"
     rate_limit_per_min: 10
+    allowed_flags:
+      - "-sV"
+      - "-p"
+      - "-T4"
   nuclei:
     binary: "nuclei"
     default_args: "-json"

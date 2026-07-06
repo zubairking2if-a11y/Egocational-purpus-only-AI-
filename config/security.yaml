@@ -6,3 +6,5 @@ security:
   rbac:
     - role: admin
       permissions: ["scan:run","scan:read","model:manage"]
+  # Live execution toggle: when false, all runners simulate and never run tools.
+  enable_live_execution: false
