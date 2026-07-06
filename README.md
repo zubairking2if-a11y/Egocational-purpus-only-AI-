@@ -2,109 +2,138 @@
 
 Pentesting — scaffolded minimal runnable layout with a secure sandboxed executor pattern.
 
-This repository provides a small FastAPI backend scaffold intended for educational pentesting exercises. To reduce risk, the project uses a containerised sandbox pattern so scanning tools run inside isolated Docker containers rather than as host subprocesses.
+This README now includes a clear, step-by-step installation and run guide so you (or contributors) can get the project running quickly and safely.
 
-## What's new in this repo
+-----
 
-- A production-grade Docker SDK executor (backend/runner/docker_sdk_executor.py) that runs pentesting tools inside isolated containers using the official docker-py SDK and streams logs to the websocket terminal.
-- An integration test template (tests/test_sandbox_integration.py) using pytest-asyncio + websockets to validate end-to-end log streaming from sandboxed containers.
-- Updated dependency: docker==7.1.0 in requirements.txt to use the latest SDK features.
+## Quick Step-by-step Install & Run
 
-## Quickstart
+Prerequisites
+- Git
+- Python 3.11+ (recommended)
+- pip (comes with Python)
+- Docker Engine (for sandboxed container execution)
+- Docker Compose v2+ (if you plan to run the sandbox compose)
 
-Prereqs:
-- Docker Engine (for local sandboxing)
-- Python 3.11+ recommended
+1) Clone the repository
 
-1. Create and activate a virtualenv, install dependencies:
+```bash
+git clone https://github.com/zubairking2if-a11y/Egocational-purpus-only-AI-.git
+cd Egocational-purpus-only-AI-
+```
+
+2) Create and activate a Python virtual environment
+
+- macOS / Linux:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+```
+
+- Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+3) Install Python dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-2. Run the backend locally (development):
+(Requirements include: fastapi, uvicorn, python-dotenv, docker==7.1.0, pyjwt)
+
+4) Create a `.env` file (recommended)
+
+Create a `.env` at the repo root with the values below (use secure values in production):
+
+```dotenv
+JWT_SECRET_KEY=change-this-to-a-secure-random-string
+SANDBOX_MAX_EXEC_TIME=300
+SANDBOX_IMAGE=kali-linux-headless:latest
+```
+
+5) Run the backend locally for development
 
 ```bash
 uvicorn backend.server:app --reload --host 0.0.0.0 --port 8000
 ```
 
-3. (Optional) Run with Docker Compose and allow the backend to start sandboxes by mounting the Docker socket:
+Verify the server is running:
 
 ```bash
-# Use the sandbox compose file (example: docker-compose.sandbox.yml)
+curl http://localhost:8000/health
+```
+
+6) Run in sandboxed Docker Compose mode (backend can spawn containers)
+
+This mode mounts the host Docker socket into the backend so that the backend can manage sandbox containers. Only run this in a trusted environment.
+
+```bash
+# example file: docker-compose.sandbox.yml
 docker compose -f docker-compose.sandbox.yml up --build
 ```
 
-When using the sandbox compose, ensure the backend service mounts `/var/run/docker.sock` so it can create child containers and that `pentest-sandbox-net` network exists or is declared in the compose.
+Important notes when using the sandbox compose:
+- The backend service must mount `/var/run/docker.sock:/var/run/docker.sock` so it can create child containers.
+- The `pentest-sandbox-net` network should be created in the compose (internal network recommended to prevent external internet access from containers).
+- Mounting the Docker socket is powerful — restrict access to this host and do not run this in multi-tenant production without additional hardening.
 
-## API endpoints (example)
+7) Trigger a sample scan (HTTP endpoint)
 
-- Health: GET /health
-- Scan request (example placeholder): POST /api/v1/scan
-  - Example JSON: {"session_id": "<uuid>", "command": "echo hello"}
+This repo contains a safe placeholder scan endpoint (`/api/v1/scan`). Adjust to your API routing if different.
 
-Your actual endpoints and payload shapes may vary. The integration test template is configurable to point to your real HTTP and WS routes.
+Example POST using `curl`:
 
-## Sandbox executor
+```bash
+curl -X POST http://localhost:8000/api/v1/scan \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"<uuid>","command":"echo hello-from-sandbox && sleep 1 && echo finished"}'
+```
 
-We replaced direct host subprocess calls with a Docker SDK executor for two reasons:
+Replace `<uuid>` with a generated UUID or let your client create one.
 
-1. Security: Running tools in short-lived containers prevents them from accessing the host filesystem or network (when configured) and allows strict resource limits.
-2. Reliability: The docker-py SDK exposes lifecycle control and structured errors instead of string-parsing CLI output.
+8) View streamed logs via WebSocket
 
-The new executor lives at: `backend/runner/docker_sdk_executor.py` and exposes `run_sandboxed_container_tool(session_id, raw_command)` which:
-- Creates a hardened container (capabilities dropped, memory and CPU limits)
-- Attaches to stdout/stderr and forwards logs to ActiveSessionManager.broadcast_to_session
-- Enforces a global execution timeout (SANDBOX_MAX_EXEC_TIME)
+Connect to the WebSocket logs path used by the project (example):
 
-If you prefer the docker CLI pattern, see the older `backend/runner/docker_executor.py` approach (not recommended for production due to escaping and subprocess concerns).
+ws://localhost:8000/ws/sessions/<session_id>/logs
 
-## Integration tests
+Use the integration test or a WebSocket client to view live streamed output.
 
-A pytest-asyncio integration test template is provided at `tests/test_sandbox_integration.py`. It:
-- POSTs a scan request to your HTTP scan endpoint with a unique session_id
-- Connects to your WebSocket logs endpoint `ws://host/ws/sessions/{session_id}/logs` and collects streamed output
-- Asserts that logs are received and the container finished
+9) Run the pytest-asyncio integration test
 
-Install test deps:
+Install test extras and run the test that validates end-to-end streaming:
 
 ```bash
 pip install pytest pytest-asyncio httpx websockets
-pytest -q tests/test_sandbox_integration.py::test_sandboxed_scan_streams_logs -k sandbox
+pytest -q tests/test_sandbox_integration.py::test_sandboxed_scan_streams_logs -k sandbox --maxfail=1
 ```
 
-## Security & hardening notes
+10) CI-friendly unit testing (mocking Docker)
 
-- Never run untrusted student-provided commands directly on the host. Always route execution through an isolated sandbox.
-- Mounting `/var/run/docker.sock` gives the backend powerful control over the Docker host. Restrict who can start the backend or run builds in production. Consider an alternative DinD or remote Docker API with strict access controls in multi-tenant environments.
-- Use `pentest-sandbox-net` as an internal, isolated network (no external internet) when running dangerous tools.
-- Sanitize and whitelist allowed commands/tools. Do not accept arbitrary shell strings unless you validate or map them to pre-approved tool containers.
+To run unit tests without a Docker daemon, mock `docker.APIClient` and `ActiveSessionManager.broadcast_to_session`.
+I can add an example test that uses `unittest.mock.patch` if you'd like.
 
-## Development notes
+-----
 
-- Requirements updated: `docker==7.1.0` (commit bumped)
-- To switch to the new executor, update any import references pointing to the old executor:
+## Security & hardening reminders
 
-```py
-# old
-from backend.runner.docker_executor import run_sandboxed_container_tool
+- Never execute untrusted user-supplied commands directly on the host.
+- Prefer a dedicated sandbox host or a remote, credentialed Docker API in multi-tenant environments.
+- Whitelist allowed tools and arguments. Map user requests to pre-approved tool invocations rather than executing raw shell strings.
+- Use an internal-only Docker network with no external routing for scans that must not access the internet.
 
-# new
-from backend.runner.docker_sdk_executor import run_sandboxed_container_tool
-```
+-----
 
-- Ensure your `docker-compose` mounts the Docker socket and defines `pentest-sandbox-net`.
+## Next actions I can take for you
 
-## Next steps
+If you want, I can:
+- Add `backend/runner/docker_sdk_executor.py` and update imports to use it.
+- Add a mocked unit test for the executor so CI doesn't need Docker.
+- Commit the pytest integration test into tests/ and update its endpoints to match the deployed API.
 
-If you'd like, I can:
-- Commit the `backend/runner/docker_sdk_executor.py` file and also add a unit test that mocks docker.APIClient so CI doesn't require a real Docker daemon.
-- Update the integration test paths to the exact routes your backend exposes.
-- Add a short HOWTO for building a hardened sandbox image (recommended base: a minimal Kali image or specially-built tool image with only the allowed binaries).
-
-## License
-
-This project uses GNU GPL-3.0 as specified in the repository metadata.
-
+Tell me which of these to commit next, or say "none" to keep changes manual.
