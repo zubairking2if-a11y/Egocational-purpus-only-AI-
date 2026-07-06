@@ -6,6 +6,30 @@ This README now includes a clear, step-by-step installation and run guide so you
 
 -----
 
+## One-line installer (copy & paste)
+
+Use this single command to bootstrap the project (build the headless Kali image, create the sandbox network, install Python deps, and start the backend). Make sure Docker Engine is running and you have permission to access `/var/run/docker.sock`.
+
+- Using curl:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/zubairking2if-a11y/Egocational-purpus-only-AI-/main/scripts/install_and_run.sh)"
+```
+
+- Using wget:
+
+```bash
+bash -c "$(wget -qO- https://raw.githubusercontent.com/zubairking2if-a11y/Egocational-purpus-only-AI-/main/scripts/install_and_run.sh)"
+```
+
+Run with no Docker Compose (starts uvicorn locally):
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/zubairking2if-a11y/Egocational-purpus-only-AI-/main/scripts/install_and_run.sh)" --no-compose
+```
+
+-----
+
 ## Quick Step-by-step Install & Run
 
 Prerequisites
@@ -120,6 +144,23 @@ I can add an example test that uses `unittest.mock.patch` if you'd like.
 
 -----
 
+## Prepare a Headless Kali Sandbox Image (auto-install + run)
+
+This project uses short-lived container sandboxes to run pentesting tools. The repo contains a `Dockerfile.kali` and scripts to build a minimal headless Kali image (`kali-linux-headless:latest`). The `scripts/install_and_run.sh` automates building the image and starting the backend. Use the one-line installer above to run everything automatically.
+
+### Manual quick build (if you prefer):
+
+```bash
+# build the included Dockerfile.kali
+./scripts/build_kali.sh kali-linux-headless:latest
+# create internal network
+docker network create --internal --driver bridge pentest-sandbox-net || true
+# run a constrained test
+docker run --rm --name sandbox-demo --network pentest-sandbox-net --cap-drop ALL --memory 512m --cpus 1.0 -e TERM=xterm-256color kali-linux-headless:latest echo hello-from-sandbox
+```
+
+-----
+
 ## Security & hardening reminders
 
 - Never execute untrusted user-supplied commands directly on the host.
@@ -132,8 +173,8 @@ I can add an example test that uses `unittest.mock.patch` if you'd like.
 ## Next actions I can take for you
 
 If you want, I can:
-- Add `backend/runner/docker_sdk_executor.py` and update imports to use it.
+- Add `backend/runner/docker_sdk_executor.py` and update imports to use it (already added in the repo).
 - Add a mocked unit test for the executor so CI doesn't need Docker.
-- Commit the pytest integration test into tests/ and update its endpoints to match the deployed API.
+- Commit the pytest integration test into tests/ and update its endpoints to match the deployed API (already added).
 
 Tell me which of these to commit next, or say "none" to keep changes manual.
